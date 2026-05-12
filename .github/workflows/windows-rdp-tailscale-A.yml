@@ -178,9 +178,8 @@ jobs:
           curl.exe -L -o "$toolkit\python-3.14.5-amd64.exe" "https://www.python.org/ftp/python/3.14.5/python-3.14.5-amd64.exe"
           Start-Process -FilePath "$toolkit\python-3.14.5-amd64.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
           
-          Write-Host "2. Installing MuMu Player 5.0.11..."
+          Write-Host "2. Downloading MuMu Player 5.0.11 Installer..."
           curl.exe -L -o "$toolkit\MuMu-Setup.exe" "https://a11.gdl.netease.com/MuMu_5.0.11_gw-win-download_all_1770087078.exe?n=MuMu_5.0.11_KPD5eHC.exe"
-          Start-Process -FilePath "$toolkit\MuMu-Setup.exe" -ArgumentList "/S" -Wait
           
           Write-Host "3. Downloading Burp Suite Pro & Loader..."
           curl.exe -L -o "$toolkit\burpsuite_pro.jar" "https://portswigger.net/burp/releases/download?product=pro&type=Jar"
