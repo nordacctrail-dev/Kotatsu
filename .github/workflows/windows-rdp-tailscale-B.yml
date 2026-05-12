@@ -192,10 +192,10 @@ jobs:
           curl.exe -L -o "$toolkit\loader.jar" "https://github.com/xiv3r/Burpsuite-Professional/raw/refs/heads/main/loader.jar"
           
           Write-Host "4. Downloading and Extracting Frida Server 17.9.8..."
-          curl.exe -L -o "$toolkit\frida-server.xz" "https://github.com/frida/frida/releases/download/17.9.8/frida-server-17.9.8-android-x86_64.xz"
-          & "C:\Program Files\7-Zip\7z.exe" e "$toolkit\frida-server.xz" -o"$toolkit" -y | Out-Null
+          curl.exe -L -o "$toolkit\frida-server-17.9.8-android-x86_64.xz" "https://github.com/frida/frida/releases/download/17.9.8/frida-server-17.9.8-android-x86_64.xz"
+          & "C:\Program Files\7-Zip\7z.exe" e "$toolkit\frida-server-17.9.8-android-x86_64.xz" -o"$toolkit" -y | Out-Null
           Rename-Item "$toolkit\frida-server-17.9.8-android-x86_64" "frida-server"
-          Remove-Item "$toolkit\frida-server.xz"
+          Remove-Item "$toolkit\frida-server-17.9.8-android-x86_64.xz"
           
           Write-Host "5. Downloading Kitsune Magisk..."
           curl.exe -L -o "$toolkit\Kitsune-Magisk-26.4.apk" "https://github.com/Scratch2033Alt/KitsuneMagisk/raw/refs/heads/main/26.4-kitsune.apk"
