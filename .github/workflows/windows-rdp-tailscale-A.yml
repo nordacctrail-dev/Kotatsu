@@ -170,7 +170,7 @@ jobs:
           Write-Host "Installing 7-Zip..."
           choco install 7zip -y | Out-Null
 
-          $$desktop = "C:\Users\Public\Desktop"
+          $desktop = "C:\Users\Public\Desktop"
           $toolkit = "$desktop\Android_Pentest_Kit"
           New-Item -ItemType Directory -Force -Path $toolkit | Out-Null
           
