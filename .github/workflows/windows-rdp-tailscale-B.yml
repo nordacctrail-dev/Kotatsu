@@ -141,13 +141,19 @@ jobs:
             $hdr = @{ Authorization = "Bearer ${{ steps.cfg.outputs.apikey }}" }
             $tn  = [uri]::EscapeDataString("${{ steps.cfg.outputs.tailnet }}")
             $resp = Invoke-RestMethod -Method GET -Headers $hdr -Uri "https://api.tailscale.com/api/v2/tailnet/$tn/devices"
+            $deleted = $false
             foreach ($d in $resp.devices) {
-              if ($d.name -match '(?i)bullet') {
+              if ($d.hostname -match '(?i)^bullet' -or $d.name -match '(?i)^bullet') {
                 Invoke-RestMethod -Method DELETE -Headers $hdr -Uri ("https://api.tailscale.com/api/v2/device/{0}" -f $d.id)
-                Write-Host "🧹 Deleted old device: $($d.name)"
+                Write-Host "🧹 Deleted old device: $($d.hostname) ($($d.name))"
+                $deleted = $true
               }
             }
-          } catch { Write-Warning "Purge failed: $($_.Exception.Message)" }
+            if ($deleted) {
+              Write-Host "⏳ Waiting 5 seconds for Tailscale servers to clear the name..."
+              Start-Sleep -Seconds 5
+            }
+          } catch { Write-Warning "Purge failed. Did you provide a valid API Key? Error: $($_.Exception.Message)" }
 
       - name: 🔗 Tailscale up (hostname=bullet)
         id: up
@@ -164,6 +170,48 @@ jobs:
           echo "fqdn=$fqdn" >> $env:GITHUB_OUTPUT
           echo "derp=$derp" >> $env:GITHUB_OUTPUT
           "### RDP (B)`nHost: $env:TS_HOSTNAME`nIPv4: $ip4`nMagicDNS: $fqdn`nDERP: $derp`nUser: $env:RDP_USER`nPass: $env:RDP_PASS" | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: 🧰 Pre-load Android Pentest Environment
+        run: |
+          Write-Host "Installing 7-Zip..."
+          choco install 7zip -y | Out-Null
+
+          $desktop = "C:\Users\${{ env.RDP_USER }}\Desktop"
+          $toolkit = "$desktop\Android_Pentest_Kit"
+          New-Item -ItemType Directory -Force -Path $toolkit | Out-Null
+          
+          Write-Host "1. Installing Python 3.14.5..."
+          curl.exe -L -o "$toolkit\python-3.14.5-amd64.exe" "https://www.python.org/ftp/python/3.14.5/python-3.14.5-amd64.exe"
+          Start-Process -FilePath "$toolkit\python-3.14.5-amd64.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
+          
+          Write-Host "2. Installing MuMu Player 5.0.11..."
+          curl.exe -L -o "$toolkit\MuMu-Setup.exe" "https://a11.gdl.netease.com/MuMu_5.0.11_gw-win-download_all_1770087078.exe?n=MuMu_5.0.11_KPD5eHC.exe"
+          Start-Process -FilePath "$toolkit\MuMu-Setup.exe" -ArgumentList "/S" -Wait
+          
+          Write-Host "3. Downloading Burp Suite Pro & Loader..."
+          curl.exe -L -o "$toolkit\burpsuite_pro.jar" "https://portswigger.net/burp/releases/download?product=pro&type=Jar"
+          curl.exe -L -o "$toolkit\loader.jar" "https://github.com/xiv3r/Burpsuite-Professional/raw/refs/heads/main/loader.jar"
+          
+          Write-Host "4. Downloading and Extracting Frida Server 17.9.8..."
+          curl.exe -L -o "$toolkit\frida-server.xz" "https://github.com/frida/frida/releases/download/17.9.8/frida-server-17.9.8-android-x86_64.xz"
+          & "C:\Program Files\7-Zip\7z.exe" e "$toolkit\frida-server.xz" -o"$toolkit" -y | Out-Null
+          Rename-Item "$toolkit\frida-server-17.9.8-android-x86_64" "frida-server"
+          Remove-Item "$toolkit\frida-server.xz"
+          
+          Write-Host "5. Downloading Kitsune Magisk..."
+          curl.exe -L -o "$toolkit\Kitsune-Magisk-26.4.apk" "https://github.com/Scratch2033Alt/KitsuneMagisk/raw/refs/heads/main/26.4-kitsune.apk"
+          
+          Write-Host "6. Downloading ADB (Platform Tools)..."
+          curl.exe -L -o "$toolkit\platform-tools.zip" "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
+          & "C:\Program Files\7-Zip\7z.exe" x "$toolkit\platform-tools.zip" -o"$toolkit" -y | Out-Null
+          Remove-Item "$toolkit\platform-tools.zip"
+          
+          Write-Host "Adding ADB to System PATH..."
+          $oldPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+          $newPath = $oldPath + ";$toolkit\platform-tools"
+          [System.Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
+          
+          Write-Host "✅ Environment setup complete! Check the Android_Pentest_Kit folder on your Desktop."
 
       - name: ⏳ Keep alive
         run: |
