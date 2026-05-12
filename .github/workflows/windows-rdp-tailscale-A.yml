@@ -42,8 +42,8 @@ defaults:
     shell: pwsh
 
 env:
-  RDP_USER: Bullettemporary
-  RDP_PASS: Bullet@12345
+  RDP_USER: ARAtik169
+  RDP_PASS: Khoti
   TS_HOSTNAME: bullet
 
 jobs:
@@ -170,7 +170,7 @@ jobs:
           Write-Host "Installing 7-Zip..."
           choco install 7zip -y | Out-Null
 
-          $desktop = "C:\Users\${{ env.RDP_USER }}\Desktop"
+          $$desktop = "C:\Users\Public\Desktop"
           $toolkit = "$desktop\Android_Pentest_Kit"
           New-Item -ItemType Directory -Force -Path $toolkit | Out-Null
           
