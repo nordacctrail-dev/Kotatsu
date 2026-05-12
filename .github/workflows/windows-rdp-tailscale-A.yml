@@ -170,39 +170,62 @@ jobs:
           Write-Host "Installing 7-Zip..."
           choco install 7zip -y | Out-Null
 
-          $desktop = "C:\Users\Public\Desktop"
-          $toolkit = "$desktop\Android_Pentest_Kit"
+          $toolkit = "C:\Users\Public\Desktop\Android_Pentest_Kit"
           New-Item -ItemType Directory -Force -Path $toolkit | Out-Null
           
+          # Move into the toolkit directory so all files generate here
+          Set-Location $toolkit
+          
           Write-Host "1. Installing Python 3.14.5..."
-          curl.exe -L -o "$toolkit\python-3.14.5-amd64.exe" "https://www.python.org/ftp/python/3.14.5/python-3.14.5-amd64.exe"
-          Start-Process -FilePath "$toolkit\python-3.14.5-amd64.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
+          curl.exe -L -o "python-3.14.5-amd64.exe" "https://www.python.org/ftp/python/3.14.5/python-3.14.5-amd64.exe"
+          Start-Process -FilePath "python-3.14.5-amd64.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
           
           Write-Host "2. Downloading MuMu Player 5.0.11 Installer..."
-          curl.exe -L -o "$toolkit\MuMu-Setup.exe" "https://a11.gdl.netease.com/MuMu_5.0.11_gw-win-download_all_1770087078.exe?n=MuMu_5.0.11_KPD5eHC.exe"
+          curl.exe -L -o "MuMu-Setup.exe" "https://a11.gdl.netease.com/MuMu_5.0.11_gw-win-download_all_1770087078.exe?n=MuMu_5.0.11_KPD5eHC.exe"
           
-          Write-Host "3. Downloading Burp Suite Pro & Loader..."
-          curl.exe -L -o "$toolkit\burpsuite_pro.jar" "https://portswigger.net/burp/releases/download?product=pro&type=Jar"
-          curl.exe -L -o "$toolkit\loader.jar" "https://github.com/xiv3r/Burpsuite-Professional/raw/refs/heads/main/loader.jar"
+          Write-Host "3. Downloading and Installing Java JDK-21 (Silent)..."
+          curl.exe -L -o jdk-21.exe "https://download.oracle.com/java/21/archive/jdk-21_windows-x64_bin.exe"
+          Start-Process -FilePath "jdk-21.exe" -ArgumentList "/s" -Wait
+          Remove-Item jdk-21.exe
           
-          Write-Host "4. Downloading and Extracting Frida Server 17.9.8..."
-          curl.exe -L -o "$toolkit\frida-server-17.9.8-android-x86_64.xz" "https://github.com/frida/frida/releases/download/17.9.8/frida-server-17.9.8-android-x86_64.xz"
-          & "C:\Program Files\7-Zip\7z.exe" e "$toolkit\frida-server-17.9.8-android-x86_64.xz" -o"$toolkit" -y | Out-Null
-          Rename-Item "$toolkit\frida-server-17.9.8-android-x86_64" "frida-server"
-          Remove-Item "$toolkit\frida-server-17.9.8-android-x86_64.xz"
+          Write-Host "4. Downloading and Installing Java JRE-8 (Silent)..."
+          curl.exe -L -o jre-8.exe "https://javadl.oracle.com/webapps/download/AutoDL?BundleId=247947_0ae14417abb444ebb02b9815e2103550"
+          Start-Process -FilePath "jre-8.exe" -ArgumentList "/s" -Wait
+          Remove-Item jre-8.exe
           
-          Write-Host "5. Downloading Kitsune Magisk..."
-          curl.exe -L -o "$toolkit\Kitsune-Magisk-26.4.apk" "https://github.com/Scratch2033Alt/KitsuneMagisk/raw/refs/heads/main/26.4-kitsune.apk"
+          Write-Host "5. Downloading Burp Suite Professional & Loader..."
+          $version = "2025"
+          curl.exe -L -o "burpsuite_pro_v$version.jar" "https://portswigger.net/burp/releases/download?product=pro&type=Jar"
+          curl.exe -L -o "loader.jar" "https://github.com/xiv3r/Burpsuite-Professional/raw/refs/heads/main/loader.jar"
+
+          Write-Host "Creating Burp.bat execution file..."
+          $batCmd = "java --add-opens=java.desktop/javax.swing=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.tree=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.Opcodes=ALL-UNNAMED -javaagent:`"$toolkit\loader.jar`" -noverify -jar `"$toolkit\burpsuite_pro_v$version.jar`""
+          $batCmd | Set-Content -Path "Burp.bat"
+
+          Write-Host "Creating Burp-Suite-Pro.vbs file for background execution..."
+          $vbsContent = @"
+          Set WshShell = CreateObject("WScript.Shell")
+          WshShell.Run chr(34) & "$toolkit\Burp.bat" & Chr(34), 0
+          Set WshShell = Nothing
+          "@
+          $vbsContent | Set-Content -Path "Burp-Suite-Pro.vbs"
           
-          Write-Host "6. Downloading ADB (Platform Tools)..."
-          curl.exe -L -o "$toolkit\platform-tools.zip" "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
-          & "C:\Program Files\7-Zip\7z.exe" x "$toolkit\platform-tools.zip" -o"$toolkit" -y | Out-Null
-          Remove-Item "$toolkit\platform-tools.zip"
+          Write-Host "6. Downloading and Extracting Frida Server 17.9.8..."
+          curl.exe -L -o "frida-server-17.9.8-android-x86_64.xz" "https://github.com/frida/frida/releases/download/17.9.8/frida-server-17.9.8-android-x86_64.xz"
+          & "C:\Program Files\7-Zip\7z.exe" e "frida-server-17.9.8-android-x86_64.xz" -o"$toolkit" -y | Out-Null
+          Rename-Item "frida-server-17.9.8-android-x86_64" "frida-server"
+          Remove-Item "frida-server-17.9.8-android-x86_64.xz"
+          
+          Write-Host "7. Downloading Kitsune Magisk..."
+          curl.exe -L -o "Kitsune-Magisk-26.4.apk" "https://github.com/Scratch2033Alt/KitsuneMagisk/raw/refs/heads/main/26.4-kitsune.apk"
+          
+          Write-Host "8. Downloading ADB (Platform Tools)..."
+          curl.exe -L -o "platform-tools.zip" "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
+          & "C:\Program Files\7-Zip\7z.exe" x "platform-tools.zip" -o"$toolkit" -y | Out-Null
+          Remove-Item "platform-tools.zip"
           
           Write-Host "Adding ADB to System PATH..."
-          $oldPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-          $newPath = $oldPath + ";$toolkit\platform-tools"
-          [System.Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
+          & setx /M PATH "$([Environment]::GetEnvironmentVariable('PATH', 'Machine'));$toolkit\platform-tools"
           
           Write-Host "✅ Environment setup complete! Check the Android_Pentest_Kit folder on your Desktop."
 
