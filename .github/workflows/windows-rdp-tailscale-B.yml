@@ -48,7 +48,7 @@ defaults:
 
 env:
   RDP_USER: ARAtik169
-  RDP_PASS: Khoti
+  RDP_PASS: Khoti@1234
   TS_HOSTNAME: bullet
 
 jobs:
