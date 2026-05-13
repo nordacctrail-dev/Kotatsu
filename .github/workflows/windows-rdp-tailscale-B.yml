@@ -28,7 +28,6 @@ on:
         required: false
         default: "0"
 
-  # Backup trigger: starts B when A completes (optional safeguard)
   workflow_run:
     workflows: ["Windows RDP via Tailscale (A)"]
     types: [completed]
@@ -108,6 +107,7 @@ jobs:
 
       - name: ⚙️ Install Tailscale (if missing) & show version
         run: |
+          $ProgressPreference = 'SilentlyContinue'
           $exe = "C:\Program Files\Tailscale\tailscale.exe"
           if (-not (Test-Path $exe)) {
             $url = 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe'
@@ -138,22 +138,31 @@ jobs:
       - name: 🧹 Purge existing devices named 'bullet'
         run: |
           try {
-            $hdr = @{ Authorization = "Bearer ${{ steps.cfg.outputs.apikey }}" }
+            $hdr = @{ Authorization = "Bearer ${{ steps.cfg.outputs.apikey }}"; Accept = "application/json" }
             $tn  = [uri]::EscapeDataString("${{ steps.cfg.outputs.tailnet }}")
-            $resp = Invoke-RestMethod -Method GET -Headers $hdr -Uri "https://api.tailscale.com/api/v2/tailnet/$tn/devices"
+            
+            $getUri = "https://api.tailscale.com/api/v2/tailnet/$tn/devices"
+            $resp = Invoke-RestMethod -Method GET -Headers $hdr -Uri $getUri
+            
             $deleted = $false
             foreach ($d in $resp.devices) {
-              if ($d.hostname -match '(?i)^bullet' -or $d.name -match '(?i)^bullet') {
-                Invoke-RestMethod -Method DELETE -Headers $hdr -Uri ("https://api.tailscale.com/api/v2/device/{0}" -f $d.id)
-                Write-Host "🧹 Deleted old device: $($d.hostname) ($($d.name))"
+              if ($d.hostname -match '(?i)^bullet(-\d+)?$' -or $d.name -match '(?i)^bullet(-\d+)?\.') {
+                $delUri = "https://api.tailscale.com/api/v2/device/$($d.id)"
+                Invoke-RestMethod -Method DELETE -Headers $hdr -Uri $delUri
+                Write-Host "🧹 Deleted old device: $($d.hostname) ($($d.name)) with ID: $($d.id)"
                 $deleted = $true
               }
             }
+            
             if ($deleted) {
-              Write-Host "⏳ Waiting 5 seconds for Tailscale servers to clear the name..."
-              Start-Sleep -Seconds 5
+              Write-Host "⏳ Waiting 10 seconds for Tailscale servers to completely flush the name..."
+              Start-Sleep -Seconds 10
+            } else {
+              Write-Host "✨ No existing 'bullet' devices found."
             }
-          } catch { Write-Warning "Purge failed. Did you provide a valid API Key? Error: $($_.Exception.Message)" }
+          } catch { 
+            Write-Warning "Purge failed. Check your API Key. Error: $($_.Exception.Message)" 
+          }
 
       - name: 🔗 Tailscale up (hostname=bullet)
         id: up
@@ -173,42 +182,42 @@ jobs:
 
       - name: 🧰 Pre-load Android Pentest Environment
         run: |
+          # Disable progress bar for MUCH faster downloads in PowerShell
+          $ProgressPreference = 'SilentlyContinue'
+          
           Write-Host "Installing 7-Zip..."
           choco install 7zip -y | Out-Null
 
           $toolkit = "C:\Users\Public\Desktop\Android_Pentest_Kit"
           New-Item -ItemType Directory -Force -Path $toolkit | Out-Null
-          
-          # Move into the toolkit directory so all files generate here
           Set-Location $toolkit
           
           Write-Host "1. Installing Python 3.14.5..."
-          curl.exe -L -o "python-3.14.5-amd64.exe" "https://www.python.org/ftp/python/3.14.5/python-3.14.5-amd64.exe"
+          curl.exe --retry 3 -L -o "python-3.14.5-amd64.exe" "https://www.python.org/ftp/python/3.14.5/python-3.14.5-amd64.exe"
           Start-Process -FilePath "python-3.14.5-amd64.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
           
           Write-Host "2. Downloading MuMu Player 5.0.11 Installer..."
-          curl.exe -L -o "MuMu-Setup.exe" "https://a11.gdl.netease.com/MuMu_5.0.11_gw-win-download_all_1770087078.exe?n=MuMu_5.0.11_KPD5eHC.exe"
+          curl.exe --retry 3 -L -o "MuMu-Setup.exe" "https://a11.gdl.netease.com/MuMu_5.0.11_gw-win-download_all_1770087078.exe?n=MuMu_5.0.11_KPD5eHC.exe"
           
           Write-Host "3. Downloading and Installing Java JDK-21 (Silent)..."
-          curl.exe -L -o jdk-21.exe "https://download.oracle.com/java/21/archive/jdk-21_windows-x64_bin.exe"
+          curl.exe --retry 3 -L -o jdk-21.exe "https://download.oracle.com/java/21/archive/jdk-21_windows-x64_bin.exe"
           Start-Process -FilePath "jdk-21.exe" -ArgumentList "/s" -Wait
           Remove-Item jdk-21.exe
           
           Write-Host "4. Downloading and Installing Java JRE-8 (Silent)..."
-          curl.exe -L -o jre-8.exe "https://javadl.oracle.com/webapps/download/AutoDL?BundleId=247947_0ae14417abb444ebb02b9815e2103550"
+          curl.exe --retry 3 -L -o jre-8.exe "https://javadl.oracle.com/webapps/download/AutoDL?BundleId=247947_0ae14417abb444ebb02b9815e2103550"
           Start-Process -FilePath "jre-8.exe" -ArgumentList "/s" -Wait
           Remove-Item jre-8.exe
           
           Write-Host "5. Downloading Burp Suite Professional & Loader..."
           $version = "2025"
-          curl.exe -L -o "burpsuite_pro_v$version.jar" "https://portswigger.net/burp/releases/download?product=pro&type=Jar"
-          curl.exe -L -o "loader.jar" "https://github.com/xiv3r/Burpsuite-Professional/raw/refs/heads/main/loader.jar"
+          curl.exe --retry 3 -L -o "burpsuite_pro_v$version.jar" "https://portswigger.net/burp/releases/download?product=pro&type=Jar"
+          curl.exe --retry 3 -L -o "loader.jar" "https://github.com/xiv3r/Burpsuite-Professional/raw/refs/heads/main/loader.jar"
 
-          Write-Host "Creating Burp.bat execution file..."
+          Write-Host "Creating Burp execution files..."
           $batCmd = "java --add-opens=java.desktop/javax.swing=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.tree=ALL-UNNAMED --add-opens=java.base/jdk.internal.org.objectweb.asm.Opcodes=ALL-UNNAMED -javaagent:`"$toolkit\loader.jar`" -noverify -jar `"$toolkit\burpsuite_pro_v$version.jar`""
           $batCmd | Set-Content -Path "Burp.bat"
 
-          Write-Host "Creating Burp-Suite-Pro.vbs file for background execution..."
           $vbsContent = @"
           Set WshShell = CreateObject("WScript.Shell")
           WshShell.Run chr(34) & "$toolkit\Burp.bat" & Chr(34), 0
@@ -217,16 +226,16 @@ jobs:
           $vbsContent | Set-Content -Path "Burp-Suite-Pro.vbs"
           
           Write-Host "6. Downloading and Extracting Frida Server 17.9.8..."
-          curl.exe -L -o "frida-server-17.9.8-android-x86_64.xz" "https://github.com/frida/frida/releases/download/17.9.8/frida-server-17.9.8-android-x86_64.xz"
+          curl.exe --retry 3 -L -o "frida-server-17.9.8-android-x86_64.xz" "https://github.com/frida/frida/releases/download/17.9.8/frida-server-17.9.8-android-x86_64.xz"
           & "C:\Program Files\7-Zip\7z.exe" e "frida-server-17.9.8-android-x86_64.xz" -o"$toolkit" -y | Out-Null
           Rename-Item "frida-server-17.9.8-android-x86_64" "frida-server"
           Remove-Item "frida-server-17.9.8-android-x86_64.xz"
           
           Write-Host "7. Downloading Kitsune Magisk..."
-          curl.exe -L -o "Kitsune-Magisk-26.4.apk" "https://github.com/Scratch2033Alt/KitsuneMagisk/raw/refs/heads/main/26.4-kitsune.apk"
+          curl.exe --retry 3 -L -o "Kitsune-Magisk-26.4.apk" "https://github.com/Scratch2033Alt/KitsuneMagisk/raw/refs/heads/main/26.4-kitsune.apk"
           
           Write-Host "8. Downloading ADB (Platform Tools)..."
-          curl.exe -L -o "platform-tools.zip" "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
+          curl.exe --retry 3 -L -o "platform-tools.zip" "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
           & "C:\Program Files\7-Zip\7z.exe" x "platform-tools.zip" -o"$toolkit" -y | Out-Null
           Remove-Item "platform-tools.zip"
           
