@@ -134,9 +134,8 @@ jobs:
         run: |
           try {
             $hdr = @{ Authorization = "Bearer ${{ steps.cfg.outputs.apikey }}"; Accept = "application/json" }
-            $tn  = [uri]::EscapeDataString("${{ steps.cfg.outputs.tailnet }}")
             
-            $getUri = "https://api.tailscale.com/api/v2/tailnet/$tn/devices"
+            $getUri = "https://api.tailscale.com/api/v2/tailnet/-/devices"
             $resp = Invoke-RestMethod -Method GET -Headers $hdr -Uri $getUri
             
             $deleted = $false
@@ -158,6 +157,7 @@ jobs:
           } catch { 
             Write-Warning "Purge failed. Check your API Key. Error: $($_.Exception.Message)" 
           }
+
 
       - name: 🔗 Tailscale up (hostname=bullet)
         id: up
